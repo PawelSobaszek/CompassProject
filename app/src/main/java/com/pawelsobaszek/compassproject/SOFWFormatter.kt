@@ -2,7 +2,6 @@ package com.pawelsobaszek.compassproject
 
 
 import android.content.Context
-import com.pawelsobaszek.compassproject.R
 
 /**
  * SOTW is short Side Of The World

@@ -15,4 +15,10 @@
     <string name="sotw_southeast">SE</string>
     <string name="sotw_southwest">SW</string>
 
+    <string name="add_place_select_location_text">SELECT DIRECTION</string>
+
+    <string name="google_maps_api_key">AIzaSyDCxpmmWFYax332T-fDcKrswDDTLRRDRqg</string>
+    <string name="direction">DIRECTION</string>
+
+
 </resources>
