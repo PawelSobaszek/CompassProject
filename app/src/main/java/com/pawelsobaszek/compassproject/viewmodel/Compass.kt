@@ -1,4 +1,4 @@
-package com.pawelsobaszek.compassproject
+package com.pawelsobaszek.compassproject.viewmodel
 
 import android.app.Application
 import android.content.Context
@@ -6,15 +6,15 @@ import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
+import android.location.LocationManager
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.LifecycleObserver
 import androidx.lifecycle.MutableLiveData
-import androidx.lifecycle.ViewModel
 import com.pawelsobaszek.compassproject.model.DirectionCoordinates
 import com.pawelsobaszek.compassproject.model.UserCurrentPosition
-import com.pawelsobaszek.compassproject.view.CompassActivity
 
 
-class Compass(application: Application) : SensorEventListener, AndroidViewModel(application) {
+class Compass(application: Application) : SensorEventListener, AndroidViewModel(application), LifecycleObserver {
     interface CompassListener {
         fun onNewAzimuth(azimuth: Float)
         fun onNewDazimuth(dazimuth: Float)
@@ -22,6 +22,7 @@ class Compass(application: Application) : SensorEventListener, AndroidViewModel(
 
     private var listener: CompassListener? = null
     private val sensorManager: SensorManager
+    private val locationManager: LocationManager
     private val gsensor: Sensor
     private val msensor: Sensor
     private val mGravity = FloatArray(3)
@@ -36,6 +37,7 @@ class Compass(application: Application) : SensorEventListener, AndroidViewModel(
 
 
 
+
     fun start() {
         sensorManager.registerListener(
             this, gsensor,
@@ -46,6 +48,19 @@ class Compass(application: Application) : SensorEventListener, AndroidViewModel(
             SensorManager.SENSOR_DELAY_GAME
         )
     }
+
+    //region isLocationEnabled
+    /**
+     * PL * Sprawdzamy czy użytkownik ma włączoną lokalizację lub połączenie z internetem
+     *
+     * EN * We check whether the user has location enabled or internet connection
+     * */
+    fun isLocationEnabled(): Boolean {
+        val locationManager : LocationManager = locationManager
+        return locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)
+                || locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
+    }
+    //endregion
 
     fun stop() {
         sensorManager.unregisterListener(this)
@@ -101,7 +116,12 @@ class Compass(application: Application) : SensorEventListener, AndroidViewModel(
                         Math.toDegrees(orientation[0].toDouble()).toFloat() // orientation
                     azimuth = (azimuth + 360) % 360
                     dazimuth = azimuth
-                    dazimuth -= bearing(startLat, startLng, endLat, endLng).toFloat()
+                    dazimuth -= bearing(
+                        startLat,
+                        startLng,
+                        endLat,
+                        endLng
+                    ).toFloat()
                     if (listener != null) {
                         listener!!.onNewDazimuth(dazimuth)
                     }
@@ -166,6 +186,7 @@ class Compass(application: Application) : SensorEventListener, AndroidViewModel(
     init {
         sensorManager = application
             .getSystemService(Context.SENSOR_SERVICE) as SensorManager
+        locationManager = application.getSystemService(Context.LOCATION_SERVICE) as LocationManager
         gsensor = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
         msensor = sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD)
     }

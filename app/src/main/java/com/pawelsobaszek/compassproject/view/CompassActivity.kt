@@ -4,21 +4,17 @@ import android.Manifest
 import android.app.Activity
 import android.app.AlertDialog
 import android.content.ActivityNotFoundException
-import android.content.Context
 import android.content.Intent
 import android.location.Location
-import android.location.LocationManager
 import android.net.Uri
 import android.os.Bundle
 import android.os.Looper
 import android.provider.Settings
-import android.util.Log
 import android.view.View
 import android.view.animation.Animation
 import android.view.animation.RotateAnimation
 import com.karumi.dexter.listener.multi.MultiplePermissionsListener
 import android.widget.ImageView
-import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.Observer
@@ -32,8 +28,8 @@ import com.karumi.dexter.Dexter
 import com.karumi.dexter.MultiplePermissionsReport
 import com.karumi.dexter.PermissionToken
 import com.karumi.dexter.listener.PermissionRequest
-import com.pawelsobaszek.compassproject.Compass
-import com.pawelsobaszek.compassproject.Compass.CompassListener
+import com.pawelsobaszek.compassproject.viewmodel.Compass
+import com.pawelsobaszek.compassproject.viewmodel.Compass.CompassListener
 import com.pawelsobaszek.compassproject.R
 import com.pawelsobaszek.compassproject.SOTWFormatter
 import com.pawelsobaszek.compassproject.model.DirectionCoordinates
@@ -41,18 +37,16 @@ import com.pawelsobaszek.compassproject.model.UserCurrentPosition
 import kotlinx.android.synthetic.main.activity_compass.*
 import java.lang.Exception
 
+
+/**
+ * PL * Aplikacja wykonana przez Pawła Sobaszka
+ *
+ * EN * App made by Paweł Sobaszek
+ * */
 class CompassActivity : AppCompatActivity() {
 
     private var compass: Compass? = null
-    // SOTW is for "side of the world"
-    private var sotwLabel: TextView? = null
     private var sotwFormatter: SOTWFormatter? = null
-    //Lat and Lng of user direction
-    private var mLatitude : Double = 0.0
-    private var mLongitude : Double = 0.0
-    //Lat and Lng of user current possition
-    private var mCurrentUserLatitude : Double = 0.0
-    private var mCurrentUserLongitude : Double = 0.0
 
     private lateinit var mFusedLocationClient: FusedLocationProviderClient
 
@@ -63,29 +57,38 @@ class CompassActivity : AppCompatActivity() {
         setContentView(R.layout.activity_compass)
         sotwFormatter = SOTWFormatter(this)
 
+        //ViewModel
         viewModel = ViewModelProviders.of(this).get(Compass::class.java)
+        //We are sending to ViewModel the default information that the user has not yet submitted "direction"
         viewModel.setDirection(false)
 
-        arrowView = findViewById(
-            R.id.main_image_hands
-        )
-        arrowDirectionView = findViewById(
-                R.id.main_image_hands_direction
-                )
-        sotwLabel = findViewById(R.id.sotw_label)
+        arrowView = findViewById(R.id.main_image_hands)
+        arrowDirectionView = findViewById(R.id.main_image_hands_direction)
+
         setupCompass()
 
         observeViewModel()
 
         mFusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
 
-
+        //region "SELECT DIRECTION" BUTTON
+        /**
+         * PL * Obsługa przycisku "SELECT DIRECTION". Sprawdzamy czy użytkownik ma włączoną lokalizację. Jeżeli nie, to przesyłamy go do ustawień.
+         * W przeciwnym wypadku sprawdzamy Dexterem czy użytkownik nadał uprawienia naszej aplikacji na korzystanie z lokalizacji. Jeżeli tak, odpalamy
+         * zlokalizowanie użytkownika oraz Places API.
+         *
+         * EN * Operation of the "SELECT DIRECTION" button. We check whether the user has location enabled. If not, we send it to the settings.
+         * Otherwise, we check with Dexter whether the user has given permission to our application to use the location. If so, we start it
+         * locate the user and Places API.
+         * */
         tv_select_location.setOnClickListener {
-            if (!isLocationEnabled()) {
+            //check if the user have disabled location, turn on settings and show Tash
+            if (!viewModel.isLocationEnabled()) {
                 Toast.makeText(this, "Your location provider is turned off. Please turn it on", Toast.LENGTH_SHORT).show()
                 val intent = Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS)
                 startActivity(intent)
             } else {
+                //If user don't agree permission, setup Dexter
                 Dexter.withActivity(this).withPermissions(
                     Manifest.permission.ACCESS_FINE_LOCATION,
                     Manifest.permission.ACCESS_COARSE_LOCATION
@@ -106,6 +109,7 @@ class CompassActivity : AppCompatActivity() {
                 }).onSameThread().check()
             }
         }
+        //endregion
 
         if (!Places.isInitialized()) {
             Places.initialize(this@CompassActivity,
@@ -113,6 +117,12 @@ class CompassActivity : AppCompatActivity() {
         }
     }
 
+    //region requestNewLocationData
+    /**
+     * PL * Definiujemy żądanie o pozyskanie lokalizacji użytkownika ustawiając atrybuty
+     *
+     * EN * We define the request for obtaining the user's location by setting attributes
+     * */
     private fun requestNewLocationData() {
         var mLocationRequest = LocationRequest()
         mLocationRequest.priority = LocationRequest.PRIORITY_HIGH_ACCURACY
@@ -121,17 +131,29 @@ class CompassActivity : AppCompatActivity() {
 
         mFusedLocationClient.requestLocationUpdates(mLocationRequest, mLocationCallBack, Looper.myLooper())
     }
+    //endregion
 
+    //region mLocationCallBack
+    /**
+     * PL * Obsługujemy odebraną lokalizację użytkownika poprzez przesłanie danych do Compass
+     *
+     * EN * We service the user's received location by sending data to Compass
+     * */
     private val mLocationCallBack = object : LocationCallback() {
         override fun onLocationResult(locationResult: LocationResult?) {
             val mLastLocation: Location = locationResult!!.lastLocation
-            mCurrentUserLatitude = mLastLocation.latitude
-            mCurrentUserLongitude = mLastLocation.longitude
-            var userCoordinates : UserCurrentPosition = UserCurrentPosition(mCurrentUserLatitude, mCurrentUserLongitude)
+            var userCoordinates : UserCurrentPosition = UserCurrentPosition(mLastLocation.latitude, mLastLocation.longitude)
             viewModel.userCoordinates(userCoordinates)
         }
     }
+    //endregion
 
+    //region showRationalDialogForPermissions
+    /**
+     * PL * W tej funkcji jeżeli użytkownik wyłączył uprawienia aplikacji do korzystania z GPS pokazujemy Dialog dający mu możliwość przejścia do ustawień uprawień
+     *
+     * EN * In this function, if the user has disabled the application's rights to use GPS, we show Dialog giving him the opportunity to go to the permissions settings
+     * */
     private fun showRationalDialogForPermissions() {
         AlertDialog.Builder(this).setMessage("It looks like you have turned off your permissions required for this feature. It can be enabled under the Application Settings")
             .setPositiveButton("GO TO SETTINGS") {
@@ -148,10 +170,16 @@ class CompassActivity : AppCompatActivity() {
                 dialog.dismiss()
             }.show()
     }
+    //endregion
 
+    //region lifecycle
+    /**
+     * PL * Obsługa cyklów życia CompassActivity
+     *
+     * EN * CompassActivity life cycle support
+     * */
     override fun onStart() {
         super.onStart()
-        Log.d(TAG, "start compass")
         compass!!.start()
     }
 
@@ -167,7 +195,6 @@ class CompassActivity : AppCompatActivity() {
 
     override fun onStop() {
         super.onStop()
-        Log.d(TAG, "stop compass")
         compass!!.stop()
     }
 
@@ -175,77 +202,88 @@ class CompassActivity : AppCompatActivity() {
         super.onDestroy()
         compass!!.stop()
     }
+    //endregion
 
+    //region setupCompass
     private fun setupCompass() {
         compass = Compass(application)
         val cl = compassListener
         compass!!.setListener(cl)
     }
+    //endregion
 
+    //region adjustSotwLabel
+    /**
+     * Adjust TextView represent Sites of The World with formatting
+     * */
     fun adjustSotwLabel(azimuth: Float) {
-        sotwLabel!!.text = sotwFormatter!!.format(azimuth)
+        sotw_label!!.text = sotwFormatter!!.format(azimuth)
     }
+    //endregion
 
+    //region btnSelectLocationFunction
+    /**
+     * PL * Odpalamy Places API po kliknięciu przycisku "SELECT DIRECTION"
+     *
+     * EN * We run Places API when user click on "SELECT DIRECTION" button
+     * */
     private fun btnSelectLocationFunction() {
         try {
-            val fields = listOf(
-                Place.Field.ID, Place.Field.NAME, Place.Field.LAT_LNG, Place.Field.ADDRESS
-            )
+            val fields = listOf(Place.Field.ID, Place.Field.NAME, Place.Field.LAT_LNG, Place.Field.ADDRESS)
             val intent = Autocomplete.IntentBuilder(AutocompleteActivityMode.FULLSCREEN, fields)
                 .build(this@CompassActivity)
-            startActivityForResult(intent,
-                PLACE_AUTOCOMPLETE_REQUEST_CODE
-            )
+            startActivityForResult(intent, PLACE_AUTOCOMPLETE_REQUEST_CODE)
         } catch (e: Exception) {
             e.printStackTrace()
         }
     }
+    //endregion
 
-    private fun isLocationEnabled(): Boolean {
-        val locationManager : LocationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
-        return locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)
-                || locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
-    }
-
+    //region onActivityResult
+    /**
+     * PL * Obsługujemy dane zwrotne przesłane po wybraniu miejsca za pomocą Places API
+     *
+     * EN * We support feedback sent after choosing a place using the Places API
+     * */
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         if (resultCode == Activity.RESULT_OK) {
             if (requestCode == PLACE_AUTOCOMPLETE_REQUEST_CODE) {
                 val place: Place = Autocomplete.getPlaceFromIntent(data!!)
                 directionText = (place.address!!)
-                mLatitude = place.latLng!!.latitude
-                mLongitude = place.latLng!!.longitude
-                var directionCoordinates : DirectionCoordinates = DirectionCoordinates(mLatitude, mLongitude)
+                var directionCoordinates : DirectionCoordinates = DirectionCoordinates(place.latLng!!.latitude, place.latLng!!.longitude)
                 viewModel.directionCoordinates(directionCoordinates)
                 viewModel.setDirection(true)
             }
         }
     }
+    //endregion
 
-    // UI updates only in UI thread
-    // https://stackoverflow.com/q/11140285/444966
+    //region compassListener
     private val compassListener: CompassListener
         private get() = object : CompassListener {
             override fun onNewAzimuth(azimuth: Float) {
                 // UI updates only in UI thread
-                // https://stackoverflow.com/q/11140285/444966
-                runOnUiThread(Runnable {
-                    adjustArrow(
-                        azimuth
-                    )
+                runOnUiThread(Runnable {adjustArrow(azimuth)
                     adjustSotwLabel(azimuth)
                 })
             }
 
             override fun onNewDazimuth(dazimuth: Float) {
-                runOnUiThread(Runnable {
-                    adjustDirectionArrow(
-                        dazimuth
-                    )
+                runOnUiThread(Runnable {adjustDirectionArrow(dazimuth)
                 })
             }
         }
+    //endregion
 
+    //region observeViewModel
+    /**
+     * PL * Nasłuchiwanie zmian w "designatedDirection", jeżeli jest true, to znaczy, że użytkownik wybrał cel podróży, jeżeli false,
+     * to aplikacja ma wskazywać jedynie Północ
+     *
+     * EN * Listening to changes in "designatedDirection" if it is true, it means that the user has selected the destination, if false
+     * this application is to indicate only North
+     * */
     fun observeViewModel() {
         viewModel.designatedDirection.observe(this, Observer { designatedDirection ->
             designatedDirection?.let { main_image_hands_direction.visibility = if (it) View.VISIBLE else View.GONE
@@ -254,12 +292,13 @@ class CompassActivity : AppCompatActivity() {
             }}
         })
     }
+    //endregion
 
-
+    //region companion object
     companion object {
-        private const val TAG = "CompassActivity"
         private var arrowView: ImageView? = null
         private var arrowDirectionView: ImageView? = null
+        //Variable in which we will save the direction
         private var directionText: String = ""
         private var currentAzimuth = 0f
         private var currentDirectionAzimuth = 0f
@@ -284,4 +323,5 @@ class CompassActivity : AppCompatActivity() {
             arrowDirectionView!!.startAnimation(an)
         }
     }
+    //endregion
 }
