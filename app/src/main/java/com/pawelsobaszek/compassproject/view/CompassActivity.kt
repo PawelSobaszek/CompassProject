@@ -1,4 +1,4 @@
-package com.pawelsobaszek.compassproject
+package com.pawelsobaszek.compassproject.view
 
 import android.Manifest
 import android.app.Activity
@@ -21,6 +21,8 @@ import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.Observer
+import androidx.lifecycle.ViewModelProviders
 import com.google.android.gms.location.*
 import com.google.android.libraries.places.api.Places
 import com.google.android.libraries.places.api.model.Place
@@ -30,50 +32,52 @@ import com.karumi.dexter.Dexter
 import com.karumi.dexter.MultiplePermissionsReport
 import com.karumi.dexter.PermissionToken
 import com.karumi.dexter.listener.PermissionRequest
+import com.pawelsobaszek.compassproject.Compass
 import com.pawelsobaszek.compassproject.Compass.CompassListener
+import com.pawelsobaszek.compassproject.R
+import com.pawelsobaszek.compassproject.SOTWFormatter
+import com.pawelsobaszek.compassproject.model.DirectionCoordinates
+import com.pawelsobaszek.compassproject.model.UserCurrentPosition
 import kotlinx.android.synthetic.main.activity_compass.*
 import java.lang.Exception
 
 class CompassActivity : AppCompatActivity() {
+
     private var compass: Compass? = null
-    private var sotwLabel // SOTW is for "side of the world"
-            : TextView? = null
+    // SOTW is for "side of the world"
+    private var sotwLabel: TextView? = null
     private var sotwFormatter: SOTWFormatter? = null
+    //Lat and Lng of user direction
     private var mLatitude : Double = 0.0
     private var mLongitude : Double = 0.0
+    //Lat and Lng of user current possition
     private var mCurrentUserLatitude : Double = 0.0
     private var mCurrentUserLongitude : Double = 0.0
 
     private lateinit var mFusedLocationClient: FusedLocationProviderClient
 
+    lateinit var viewModel: Compass
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_compass)
         sotwFormatter = SOTWFormatter(this)
-        arrowView = findViewById(R.id.main_image_hands)
-        arrowDirectionView = findViewById(R.id.main_image_hands_direction)
-        directionTextView = findViewById(R.id.tv_name_of_target)
+
+        viewModel = ViewModelProviders.of(this).get(Compass::class.java)
+        viewModel.setDirection(false)
+
+        arrowView = findViewById(
+            R.id.main_image_hands
+        )
+        arrowDirectionView = findViewById(
+                R.id.main_image_hands_direction
+                )
         sotwLabel = findViewById(R.id.sotw_label)
         setupCompass()
 
-        if (directionTextView!!.text.isEmpty()) {
-            val sharedPreferences = getSharedPreferences("COMPASS_TYPE", 0)
-            val editor = sharedPreferences.edit()
-            editor.putInt("CompassType", 0)
-            editor.apply()
-            arrowDirectionView!!.visibility = View.INVISIBLE
-        }
+        observeViewModel()
 
         mFusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
-
-/*        tv_head_north.setOnClickListener {
-            if (tv_name_of_target.text == "NORTH") {
-                Toast.makeText(this, "Compass already heading NORTH", Toast.LENGTH_SHORT).show()
-            } else {
-                btnHeadNorthFunction()
-                }
-            }*/
 
 
         tv_select_location.setOnClickListener {
@@ -123,11 +127,8 @@ class CompassActivity : AppCompatActivity() {
             val mLastLocation: Location = locationResult!!.lastLocation
             mCurrentUserLatitude = mLastLocation.latitude
             mCurrentUserLongitude = mLastLocation.longitude
-            val sharedPreferences = getSharedPreferences("COMPASS_TYPE", 0)
-            val editor = sharedPreferences.edit()
-            editor.putFloat("currentUserLatitude", mCurrentUserLatitude.toFloat())
-            editor.putFloat("currentUserLongitude", mCurrentUserLongitude.toFloat())
-            editor.apply()
+            var userCoordinates : UserCurrentPosition = UserCurrentPosition(mCurrentUserLatitude, mCurrentUserLongitude)
+            viewModel.userCoordinates(userCoordinates)
         }
     }
 
@@ -176,21 +177,13 @@ class CompassActivity : AppCompatActivity() {
     }
 
     private fun setupCompass() {
-        compass = Compass(this)
+        compass = Compass(application)
         val cl = compassListener
         compass!!.setListener(cl)
     }
 
     fun adjustSotwLabel(azimuth: Float) {
         sotwLabel!!.text = sotwFormatter!!.format(azimuth)
-    }
-
-    private fun btnHeadNorthFunction() {
-        val sharedPreferences = getSharedPreferences("COMPASS_TYPE", 0)
-        val editor = sharedPreferences.edit()
-        editor.putInt("CompassType", 0)
-        editor.apply()
-        recreate()
     }
 
     private fun btnSelectLocationFunction() {
@@ -200,7 +193,9 @@ class CompassActivity : AppCompatActivity() {
             )
             val intent = Autocomplete.IntentBuilder(AutocompleteActivityMode.FULLSCREEN, fields)
                 .build(this@CompassActivity)
-            startActivityForResult(intent, PLACE_AUTOCOMPLETE_REQUEST_CODE)
+            startActivityForResult(intent,
+                PLACE_AUTOCOMPLETE_REQUEST_CODE
+            )
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -217,15 +212,12 @@ class CompassActivity : AppCompatActivity() {
         if (resultCode == Activity.RESULT_OK) {
             if (requestCode == PLACE_AUTOCOMPLETE_REQUEST_CODE) {
                 val place: Place = Autocomplete.getPlaceFromIntent(data!!)
-                tv_name_of_target.setText(place.address)
+                directionText = (place.address!!)
                 mLatitude = place.latLng!!.latitude
                 mLongitude = place.latLng!!.longitude
-                val sharedPreferences = getSharedPreferences("COMPASS_TYPE", 0)
-                val editor = sharedPreferences.edit()
-                editor.putFloat("latitude", mLatitude.toFloat())
-                editor.putFloat("longitude", mLongitude.toFloat())
-                editor.putInt("CompassType", 1)
-                editor.apply()
+                var directionCoordinates : DirectionCoordinates = DirectionCoordinates(mLatitude, mLongitude)
+                viewModel.directionCoordinates(directionCoordinates)
+                viewModel.setDirection(true)
             }
         }
     }
@@ -238,39 +230,44 @@ class CompassActivity : AppCompatActivity() {
                 // UI updates only in UI thread
                 // https://stackoverflow.com/q/11140285/444966
                 runOnUiThread(Runnable {
-                    adjustArrow(azimuth)
+                    adjustArrow(
+                        azimuth
+                    )
                     adjustSotwLabel(azimuth)
                 })
             }
 
             override fun onNewDazimuth(dazimuth: Float) {
                 runOnUiThread(Runnable {
-                    adjustDirectionArrow(dazimuth)
+                    adjustDirectionArrow(
+                        dazimuth
+                    )
                 })
             }
         }
+
+    fun observeViewModel() {
+        viewModel.designatedDirection.observe(this, Observer { designatedDirection ->
+            designatedDirection?.let { main_image_hands_direction.visibility = if (it) View.VISIBLE else View.GONE
+            if (it) {
+                tv_name_of_target.setText(directionText)
+            }}
+        })
+    }
+
 
     companion object {
         private const val TAG = "CompassActivity"
         private var arrowView: ImageView? = null
         private var arrowDirectionView: ImageView? = null
-        private var directionTextView: TextView? = null
+        private var directionText: String = ""
         private var currentAzimuth = 0f
         private var currentDirectionAzimuth = 0f
 
         private const val PLACE_AUTOCOMPLETE_REQUEST_CODE = 1
 
         fun adjustArrow(azimuth: Float) {
-            Log.d(
-                TAG,
-                "will set rotation from " + currentAzimuth + " to "
-                        + azimuth
-            )
-            val an: Animation = RotateAnimation(
-                -currentAzimuth, -azimuth,
-                Animation.RELATIVE_TO_SELF, 0.5f, Animation.RELATIVE_TO_SELF,
-                0.5f
-            )
+            val an: Animation = RotateAnimation(-currentAzimuth, -azimuth, Animation.RELATIVE_TO_SELF, 0.5f, Animation.RELATIVE_TO_SELF, 0.5f)
             currentAzimuth = azimuth
             an.duration = 500
             an.repeatCount = 0
@@ -279,22 +276,12 @@ class CompassActivity : AppCompatActivity() {
         }
 
         fun adjustDirectionArrow(dazimuth: Float) {
-            Log.d(
-                TAG,
-                "will set rotation from " + currentDirectionAzimuth + " to "
-                        + dazimuth
-            )
-            val an: Animation = RotateAnimation(
-                -currentDirectionAzimuth, -dazimuth,
-                Animation.RELATIVE_TO_SELF, 0.5f, Animation.RELATIVE_TO_SELF,
-                0.5f
-            )
+            val an: Animation = RotateAnimation(-currentDirectionAzimuth, -dazimuth, Animation.RELATIVE_TO_SELF, 0.5f, Animation.RELATIVE_TO_SELF, 0.5f)
             currentDirectionAzimuth = dazimuth
             an.duration = 500
             an.repeatCount = 0
             an.fillAfter = true
             arrowDirectionView!!.startAnimation(an)
-            arrowDirectionView!!.visibility = View.VISIBLE
         }
     }
 }
