@@ -31,7 +31,7 @@ import com.karumi.dexter.listener.PermissionRequest
 import com.pawelsobaszek.compassproject.viewmodel.Compass
 import com.pawelsobaszek.compassproject.viewmodel.Compass.CompassListener
 import com.pawelsobaszek.compassproject.R
-import com.pawelsobaszek.compassproject.SOTWFormatter
+import com.pawelsobaszek.compassproject.viewmodel.SOTWFormatter
 import com.pawelsobaszek.compassproject.model.DirectionCoordinates
 import com.pawelsobaszek.compassproject.model.UserCurrentPosition
 import kotlinx.android.synthetic.main.activity_compass.*
@@ -40,8 +40,12 @@ import java.lang.Exception
 
 /**
  * PL * Aplikacja wykonana przez Pawła Sobaszka
+ * UWAGA!!!
+ * Do poprawnego działania aplikacji należy wkleić API Key do strings.xml dla stringa "google_maps_api_key"
  *
  * EN * App made by Paweł Sobaszek
+ * ATTENTION!!!
+ * For proper operation of the application, paste the API Key into strings.xml for the string "google_maps_api_key"
  * */
 class CompassActivity : AppCompatActivity() {
 
@@ -55,7 +59,8 @@ class CompassActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_compass)
-        sotwFormatter = SOTWFormatter(this)
+        sotwFormatter =
+            SOTWFormatter(this)
 
         //ViewModel
         viewModel = ViewModelProviders.of(this).get(Compass::class.java)
@@ -217,7 +222,7 @@ class CompassActivity : AppCompatActivity() {
      * Adjust TextView represent Sites of The World with formatting
      * */
     fun adjustSotwLabel(azimuth: Float) {
-        sotw_label!!.text = sotwFormatter!!.format(azimuth)
+        sotw_label!!.text = sotwFormatter!!.format(360 - azimuth)
     }
     //endregion
 
@@ -305,6 +310,12 @@ class CompassActivity : AppCompatActivity() {
 
         private const val PLACE_AUTOCOMPLETE_REQUEST_CODE = 1
 
+        //region adjustArrow
+        /**
+         * PL * Obsługa animacji strzałki wskazującej północ
+         *
+         * EN * North arrow animation support
+         * */
         fun adjustArrow(azimuth: Float) {
             val an: Animation = RotateAnimation(-currentAzimuth, -azimuth, Animation.RELATIVE_TO_SELF, 0.5f, Animation.RELATIVE_TO_SELF, 0.5f)
             currentAzimuth = azimuth
@@ -313,7 +324,14 @@ class CompassActivity : AppCompatActivity() {
             an.fillAfter = true
             arrowView!!.startAnimation(an)
         }
+        //endregion
 
+        //region adjustDirectionArrow
+        /**
+         * PL * Obsługa animacji strzałki wskazującej wybrany obrany użytkownika cel/kierunek
+         *
+         * EN * Support for arrow animation showing selected target/direction selected by user
+         * */
         fun adjustDirectionArrow(dazimuth: Float) {
             val an: Animation = RotateAnimation(-currentDirectionAzimuth, -dazimuth, Animation.RELATIVE_TO_SELF, 0.5f, Animation.RELATIVE_TO_SELF, 0.5f)
             currentDirectionAzimuth = dazimuth
@@ -322,6 +340,7 @@ class CompassActivity : AppCompatActivity() {
             an.fillAfter = true
             arrowDirectionView!!.startAnimation(an)
         }
+        //endregion
     }
     //endregion
 }

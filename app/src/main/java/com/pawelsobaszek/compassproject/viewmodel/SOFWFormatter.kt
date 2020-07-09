@@ -1,7 +1,8 @@
-package com.pawelsobaszek.compassproject
+package com.pawelsobaszek.compassproject.viewmodel
 
 
 import android.content.Context
+import com.pawelsobaszek.compassproject.R
 
 /**
  * SOTW is short Side Of The World
@@ -18,7 +19,10 @@ import android.content.Context
 class SOTWFormatter(context: Context) {
     fun format(azimuth: Float): String {
         val iAzimuth = azimuth.toInt()
-        val index = findClosestIndex(iAzimuth)
+        val index =
+            findClosestIndex(
+                iAzimuth
+            )
         return iAzimuth.toString() + "° " + names!![index]
     }
 
@@ -73,14 +77,22 @@ class SOTWFormatter(context: Context) {
                     // If target is greater than previous
                     // to mid, return closest of two
                     if (mid > 0 && target > sides[mid - 1]) {
-                        return getClosest(mid - 1, mid, target)
+                        return getClosest(
+                            mid - 1,
+                            mid,
+                            target
+                        )
                     }
 
                     /* Repeat for left half */j = mid
                 } else {
                     if (mid < sides.size - 1 && target < sides[mid + 1]
                     ) {
-                        return getClosest(mid, mid + 1, target)
+                        return getClosest(
+                            mid,
+                            mid + 1,
+                            target
+                        )
                     }
                     i = mid + 1 // update i
                 }
