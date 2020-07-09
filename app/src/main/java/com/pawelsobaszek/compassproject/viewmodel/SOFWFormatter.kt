@@ -12,9 +12,6 @@ import com.pawelsobaszek.compassproject.R
  *
  * This is a task of finding the closest element in the array.
  * Binary search is used to save some CPU.
- *
- * Copied with modifications from
- * https://www.geeksforgeeks.org/find-closest-number-array/
  */
 class SOTWFormatter(context: Context) {
     fun format(azimuth: Float): String {
