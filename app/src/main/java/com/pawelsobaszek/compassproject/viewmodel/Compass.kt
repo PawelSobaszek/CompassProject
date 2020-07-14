@@ -6,7 +6,9 @@ import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
+import android.location.Location
 import android.location.LocationManager
+import android.widget.Toast
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LifecycleObserver
 import androidx.lifecycle.MutableLiveData
@@ -25,6 +27,7 @@ class Compass(application: Application) : SensorEventListener, AndroidViewModel(
     interface CompassListener {
         fun onNewAzimuth(azimuth: Float)
         fun onNewDazimuth(dazimuth: Float)
+        fun onNewDistance(distance: Double)
     }
 
     private var listener: CompassListener? = null
@@ -124,8 +127,11 @@ class Compass(application: Application) : SensorEventListener, AndroidViewModel(
                     azimuth = (azimuth + 360) % 360
                     dazimuth = azimuth
                     dazimuth -= bearing(startLat, startLng, endLat, endLng).toFloat()
+                    var distance = calculateDistance(startLat, startLng, endLat, endLng)
+
                     if (listener != null) {
                         listener!!.onNewDazimuth(dazimuth)
+                        listener!!.onNewDistance(distance.toDouble())
                     }
                 }
 
@@ -136,6 +142,12 @@ class Compass(application: Application) : SensorEventListener, AndroidViewModel(
         }
     }
     //endregion
+
+    fun calculateDistance(startLat: Double, startLng: Double, endLat: Double, endLng: Double) : Float {
+        var result : FloatArray = FloatArray(10)
+        Location.distanceBetween(startLat, startLng, endLat, endLng, result)
+        return result[0]
+    }
 
     //region userCoordinates
     /**

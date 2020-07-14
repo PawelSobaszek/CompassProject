@@ -15,6 +15,7 @@ import android.view.animation.Animation
 import android.view.animation.RotateAnimation
 import com.karumi.dexter.listener.multi.MultiplePermissionsListener
 import android.widget.ImageView
+import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.Observer
@@ -36,6 +37,7 @@ import com.pawelsobaszek.compassproject.model.DirectionCoordinates
 import com.pawelsobaszek.compassproject.model.UserCurrentPosition
 import kotlinx.android.synthetic.main.activity_compass.*
 import java.lang.Exception
+import kotlin.math.round
 
 
 /**
@@ -69,6 +71,7 @@ class CompassActivity : AppCompatActivity() {
 
         arrowView = findViewById(R.id.main_image_hands)
         arrowDirectionView = findViewById(R.id.main_image_hands_direction)
+        distanceTV = findViewById(R.id.tv_distance)
 
         setupCompass()
 
@@ -278,6 +281,12 @@ class CompassActivity : AppCompatActivity() {
                 runOnUiThread(Runnable {adjustDirectionArrow(dazimuth)
                 })
             }
+
+            override fun onNewDistance(distance: Double) {
+                runOnUiThread(Runnable {
+                    adjustDistance(distance)
+                })
+            }
         }
     //endregion
 
@@ -303,6 +312,7 @@ class CompassActivity : AppCompatActivity() {
     companion object {
         private var arrowView: ImageView? = null
         private var arrowDirectionView: ImageView? = null
+        private var distanceTV: TextView? = null
         //Variable in which we will save the direction
         private var directionText: String = ""
         private var currentAzimuth = 0f
@@ -339,6 +349,13 @@ class CompassActivity : AppCompatActivity() {
             an.repeatCount = 0
             an.fillAfter = true
             arrowDirectionView!!.startAnimation(an)
+        }
+
+        fun adjustDistance(distance: Double) {
+            val distanceInKm = distance / 1000
+            val distanceInKmRounded = "%.2f".format(distanceInKm)
+            val distanceInKmString = "${distanceInKmRounded} km"
+            distanceTV!!.text = distanceInKmString
         }
         //endregion
     }

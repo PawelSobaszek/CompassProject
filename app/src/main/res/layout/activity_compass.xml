@@ -66,6 +66,15 @@
             android:textStyle="bold"/>
 
         <TextView
+            android:id="@+id/tv_distance"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:text=""
+            android:textColor="@color/colorAccent"
+            android:textStyle="italic"/>
+
+        <TextView
             android:id="@+id/tv_name_of_target"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
